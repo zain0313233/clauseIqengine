@@ -1,21 +1,24 @@
 from fastapi import APIRouter, BackgroundTasks
-from models.schemas import ProcessRequest
+from models.schemas import DeleteVectorsRequest, ProcessRequest
 from services.parser import parse_document
 from services.chunker import chunk_text
 from services.embedder import embed_texts
-from services.pinecone_service import store_chunks
+from services.pinecone_service import delete_document_vectors, store_chunks
 from db.neon import update_document_status
+from db.ownership import assert_document_owner
 from db.analysis import set_analysis_pending, save_document_analysis
 from db.agents import set_agents_pending, save_agent_report
 from services.analyzer import analyze_contract
 from services.agents import run_agent_team
+from job_limits import job_slot, reject_if_queue_full
 import psycopg2
 import os
 
 router = APIRouter()
 
 async def process_document_task(request: ProcessRequest):
-    try:
+    async with job_slot():
+      try:
         # 1. Update status to processing
         update_document_status(request.document_id, "processing")
 
@@ -31,9 +34,13 @@ async def process_document_task(request: ProcessRequest):
         # 5. Store in Pinecone
         pinecone_ids = store_chunks(request.document_id, chunks, embeddings)
 
-        # 6. Save chunks to Neon DB
+        # 6. Save chunks to Neon DB (clear stale rows from prior runs)
         conn = psycopg2.connect(os.getenv("DATABASE_URL"))
         cur = conn.cursor()
+        cur.execute(
+            'DELETE FROM "Chunk" WHERE "documentId" = %s',
+            (request.document_id,),
+        )
         for i, (chunk, pid) in enumerate(zip(chunks, pinecone_ids)):
             cur.execute(
                 'INSERT INTO "Chunk" (id, content, "chunkIndex", "pineconeId", "documentId", "createdAt") VALUES (gen_random_uuid()::text, %s, %s, %s, %s, NOW())',
@@ -62,11 +69,19 @@ async def process_document_task(request: ProcessRequest):
         except Exception:
             save_agent_report(request.document_id, {"status": "failed", "agents": []})
 
-    except Exception as e:
+      except Exception:
         update_document_status(request.document_id, "failed")
-        raise e
 
 @router.post("/")
 async def process_document(request: ProcessRequest, background_tasks: BackgroundTasks):
+    assert_document_owner(request.document_id, request.user_id)
+    reject_if_queue_full()
     background_tasks.add_task(process_document_task, request)
     return {"message": "Document processing started", "document_id": request.document_id}
+
+
+@router.post("/delete-vectors")
+async def delete_vectors(request: DeleteVectorsRequest):
+    assert_document_owner(request.document_id, request.user_id)
+    delete_document_vectors(request.document_id)
+    return {"message": "Vectors deleted", "document_id": request.document_id}

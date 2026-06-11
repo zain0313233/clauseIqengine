@@ -3,6 +3,7 @@ import docx
 import httpx
 import io
 
+from services.file_type import assert_mime_matches
 from services.url_validation import MAX_DOWNLOAD_BYTES, validate_file_url
 
 async def parse_document(file_url: str, file_type: str) -> str:
@@ -17,12 +18,10 @@ async def parse_document(file_url: str, file_type: str) -> str:
                 if len(file_bytes) > MAX_DOWNLOAD_BYTES:
                     raise ValueError("File exceeds maximum allowed size")
 
-    if file_type == "application/pdf":
+    mime = assert_mime_matches(file_bytes, file_type)
+    if mime == "application/pdf":
         return parse_pdf(file_bytes)
-    elif "wordprocessingml" in file_type:
-        return parse_docx(file_bytes)
-    else:
-        raise ValueError(f"Unsupported file type: {file_type}")
+    return parse_docx(file_bytes)
 
 def parse_pdf(file_bytes: bytes) -> str:
     text = ""

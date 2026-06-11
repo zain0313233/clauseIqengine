@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from models.schemas import QueryRequest, QueryResponse, QuerySource
+from db.ownership import assert_document_owner
 from services.groq_service import generate_answer
 from services.retrieval import retrieve_document_chunks
 
@@ -8,6 +9,7 @@ router = APIRouter()
 
 @router.post("/", response_model=QueryResponse)
 async def query_document(request: QueryRequest):
+  assert_document_owner(request.document_id, request.user_id)
   chunks = retrieve_document_chunks(request.question, request.document_id)
 
   if not chunks:

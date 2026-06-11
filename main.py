@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from routers import process, query, analyze, compare, portfolio, agents
 from auth import verify_engine_auth
+from rate_limit import rate_limit_middleware
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,6 +32,11 @@ if cors_origins:
     allow_methods=["*"],
     allow_headers=["*"],
   )
+
+
+@app.middleware("http")
+async def engine_rate_limit_middleware(request: Request, call_next):
+  return await rate_limit_middleware(request, call_next)
 
 
 @app.middleware("http")
