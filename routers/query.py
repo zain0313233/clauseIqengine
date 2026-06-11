@@ -1,26 +1,35 @@
 from fastapi import APIRouter
-from models.schemas import QueryRequest, QueryResponse
-from services.embedder import embed_query
-from services.pinecone_service import search_chunks
+from models.schemas import QueryRequest, QueryResponse, QuerySource
 from services.groq_service import generate_answer
+from services.retrieval import retrieve_document_chunks
 
 router = APIRouter()
 
+
 @router.post("/", response_model=QueryResponse)
 async def query_document(request: QueryRequest):
-    # 1. Embed the question
-    query_embedding = embed_query(request.question)
+  chunks = retrieve_document_chunks(request.question, request.document_id)
 
-    # 2. Search Pinecone for relevant chunks
-    chunks = search_chunks(query_embedding, request.document_id)
+  if not chunks:
+    return QueryResponse(
+      answer="I could not find relevant information in this document for your question.",
+      sources=[],
+      confidence="low",
+    )
 
-    if not chunks:
-        return QueryResponse(
-            answer="No relevant information found in this document.",
-            sources=[]
-        )
+  result = generate_answer(request.question, chunks, mode=request.mode)
 
-    # 3. Generate answer with Groq
-    answer = generate_answer(request.question, chunks)
+  sources = [
+    QuerySource(
+      content=c["content"],
+      chunk_index=c["chunk_index"],
+      score=c["score"],
+    )
+    for c in chunks
+  ]
 
-    return QueryResponse(answer=answer, sources=chunks)
+  return QueryResponse(
+    answer=result["answer"],
+    sources=sources,
+    confidence=result["confidence"],
+  )

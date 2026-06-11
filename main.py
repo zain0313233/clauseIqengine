@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import process, query
+from routers import process, query, analyze, compare, portfolio, agents
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,6 +17,10 @@ app.add_middleware(
 
 app.include_router(process.router, prefix="/process", tags=["process"])
 app.include_router(query.router, prefix="/query", tags=["query"])
+app.include_router(analyze.router, prefix="/analyze", tags=["analyze"])
+app.include_router(compare.router, prefix="/compare", tags=["compare"])
+app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
+app.include_router(agents.router, prefix="/agents", tags=["agents"])
 
 @app.get("/health")
 def health():

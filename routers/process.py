@@ -5,6 +5,10 @@ from services.chunker import chunk_text
 from services.embedder import embed_texts
 from services.pinecone_service import store_chunks
 from db.neon import update_document_status
+from db.analysis import set_analysis_pending, save_document_analysis
+from db.agents import set_agents_pending, save_agent_report
+from services.analyzer import analyze_contract
+from services.agents import run_agent_team
 import psycopg2
 import os
 
@@ -41,6 +45,22 @@ async def process_document_task(request: ProcessRequest):
 
         # 7. Update status to ready
         update_document_status(request.document_id, "ready")
+
+        # 8. ClauseMind auto-analysis (risk scanner + summary)
+        try:
+            set_analysis_pending(request.document_id)
+            analysis = analyze_contract(text)
+            save_document_analysis(request.document_id, analysis)
+        except Exception:
+            save_document_analysis(request.document_id, {"status": "failed"})
+
+        # 9. ClauseMind agent team (parallel specialist opinions)
+        try:
+            set_agents_pending(request.document_id)
+            agent_result = run_agent_team(text)
+            save_agent_report(request.document_id, agent_result)
+        except Exception:
+            save_agent_report(request.document_id, {"status": "failed", "agents": []})
 
     except Exception as e:
         update_document_status(request.document_id, "failed")
