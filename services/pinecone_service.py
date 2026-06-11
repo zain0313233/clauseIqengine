@@ -9,7 +9,13 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index(os.getenv("PINECONE_INDEX_NAME"))
 
 
+def delete_document_vectors(document_id: str) -> None:
+  index.delete(filter={"document_id": {"$eq": document_id}})
+
+
 def store_chunks(document_id: str, chunks: list[str], embeddings: list[list[float]]) -> list[str]:
+  delete_document_vectors(document_id)
+
   vectors = []
   pinecone_ids = []
 
@@ -82,4 +88,3 @@ def search_chunks_portfolio(
       })
 
   return chunks
-
