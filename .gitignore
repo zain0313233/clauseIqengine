@@ -14,9 +14,8 @@ __pycache__/
 .env.local
 .env.production
 
-# Model cache (sentence transformers downloads)
+# ML / Hugging Face cache (not the app models/ Python package)
 .cache/
-models/
 
 # Hugging Face cache
 ~/.cache/huggingface/
