@@ -50,13 +50,22 @@ def _merge_chunks(primary: list[dict], secondary: list[dict], limit: int = 8) ->
   return ranked[:limit]
 
 
-def retrieve_document_chunks(question: str, document_id: str) -> list[dict]:
+def retrieve_document_chunks(
+  question: str,
+  document_id: str,
+  history: list[dict] | None = None,
+) -> list[dict]:
   """Semantic search with optional second pass for clause-existence questions."""
-  primary = search_chunks(embed_query(question), document_id, top_k=6)
+  from services.conversation_context import build_retrieval_query
 
-  if not is_clause_existence_question(question):
+  search_query = build_retrieval_query(question, history)
+  top_k = 8 if history else 6
+  primary = search_chunks(embed_query(search_query), document_id, top_k=top_k)
+
+  existence_q = search_query if history else question
+  if not is_clause_existence_question(existence_q):
     return primary
 
-  expanded = expand_existence_query(question)
+  expanded = expand_existence_query(existence_q)
   secondary = search_chunks(embed_query(expanded), document_id, top_k=6)
   return _merge_chunks(primary, secondary, limit=8)

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks
 from models.schemas import DeleteVectorsRequest, ProcessRequest
 from services.parser import parse_document
@@ -5,6 +7,7 @@ from services.chunker import chunk_text
 from services.embedder import embed_texts
 from services.pinecone_service import delete_document_vectors, store_chunks
 from db.neon import update_document_status
+from db.notifications import notify_document_failed, notify_document_ready
 from db.ownership import assert_document_owner
 from db.analysis import set_analysis_pending, save_document_analysis
 from db.agents import set_agents_pending, save_agent_report
@@ -15,6 +18,8 @@ import psycopg2
 import os
 
 router = APIRouter()
+logger = logging.getLogger("clauseiq.engine.process")
+
 
 async def process_document_task(request: ProcessRequest):
     async with job_slot():
@@ -52,6 +57,7 @@ async def process_document_task(request: ProcessRequest):
 
         # 7. Update status to ready
         update_document_status(request.document_id, "ready")
+        notify_document_ready(request.document_id)
 
         # 8. ClauseMind auto-analysis (risk scanner + summary)
         try:
@@ -70,7 +76,12 @@ async def process_document_task(request: ProcessRequest):
             save_agent_report(request.document_id, {"status": "failed", "agents": []})
 
       except Exception:
+        logger.exception(
+            "process_document_task failed",
+            extra={"document_id": request.document_id, "user_id": request.user_id},
+        )
         update_document_status(request.document_id, "failed")
+        notify_document_failed(request.document_id)
 
 @router.post("/")
 async def process_document(request: ProcessRequest, background_tasks: BackgroundTasks):

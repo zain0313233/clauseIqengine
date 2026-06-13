@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import text
 from db.neon import engine
 from db.document_metadata import sync_document_metadata
+from db.notifications import notify_analysis_complete
 
 
 def set_analysis_pending(document_id: str):
@@ -97,3 +98,4 @@ def save_document_analysis(document_id: str, result: dict):
       sync_document_metadata(document_id, result)
 
     conn.commit()
+    notify_analysis_complete(document_id, result)
