@@ -38,6 +38,7 @@ class QueryResponse(BaseModel):
     answer: str
     sources: list[QuerySource]
     confidence: str
+    irrelevant: bool = False
 
 
 class PortfolioQueryRequest(BaseModel):
