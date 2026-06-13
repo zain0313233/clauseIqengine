@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from routers import process, query, analyze, compare, portfolio, agents
+from routers import process, query, analyze, compare, portfolio, agents, validate
 from auth import verify_engine_auth
 from rate_limit import rate_limit_middleware
 from dotenv import load_dotenv
@@ -72,6 +72,7 @@ app.include_router(analyze.router, prefix="/analyze", tags=["analyze"], dependen
 app.include_router(compare.router, prefix="/compare", tags=["compare"], dependencies=_engine_auth)
 app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"], dependencies=_engine_auth)
 app.include_router(agents.router, prefix="/agents", tags=["agents"], dependencies=_engine_auth)
+app.include_router(validate.router, prefix="/validate", tags=["validate"], dependencies=_engine_auth)
 
 
 @app.get("/health")

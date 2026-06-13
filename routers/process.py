@@ -11,8 +11,10 @@ from db.notifications import notify_document_failed, notify_document_ready
 from db.ownership import assert_document_owner
 from db.analysis import set_analysis_pending, save_document_analysis
 from db.agents import set_agents_pending, save_agent_report
+from db.document_review import update_document_review
 from services.analyzer import analyze_contract
 from services.agents import run_agent_team
+from services.content_guard import security_scan_document
 from job_limits import job_slot, reject_if_queue_full
 import psycopg2
 import os
@@ -58,6 +60,22 @@ async def process_document_task(request: ProcessRequest):
         # 7. Update status to ready
         update_document_status(request.document_id, "ready")
         notify_document_ready(request.document_id)
+
+        # 7b. Auto security scan — safe-by-default (immediate use unless malicious)
+        try:
+            scan = security_scan_document(text)
+            update_document_review(
+                request.document_id,
+                scan.get("status", "valid"),
+                scan,
+                queries_enabled=scan.get("queries_enabled", True),
+            )
+            if not scan.get("safe", True):
+                from db.document_review import notify_admins_document_security
+
+                notify_admins_document_security(request.document_id, scan)
+        except Exception:
+            logger.exception("security_scan failed for %s", request.document_id)
 
         # 8. ClauseMind auto-analysis (risk scanner + summary)
         try:
