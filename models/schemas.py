@@ -15,11 +15,17 @@ class DeleteVectorsRequest(BaseModel):
     user_id: str
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class QueryRequest(BaseModel):
     document_id: str
     question: str
     user_id: str
-    mode: Literal["default", "plain_english"] = "default"
+    mode: Literal["default", "plain_english", "conversational"] = "conversational"
+    history: list[ChatTurn] = Field(default_factory=list)
 
 
 class QuerySource(BaseModel):
