@@ -1,12 +1,13 @@
 import logging
 
+import psycopg2
 from fastapi import APIRouter, BackgroundTasks
 from models.schemas import DeleteVectorsRequest, ProcessRequest
 from services.parser import parse_document
 from services.chunker import chunk_text
 from services.embedder import embed_texts
 from services.pinecone_service import delete_document_vectors, store_chunks
-from db.neon import update_document_status
+from db.neon import DATABASE_URL, update_document_status
 from db.notifications import notify_document_failed, notify_document_ready
 from db.ownership import assert_document_owner
 from db.analysis import set_analysis_pending, save_document_analysis
@@ -16,8 +17,6 @@ from services.analyzer import analyze_contract
 from services.agents import run_agent_team
 from services.content_guard import security_scan_document
 from job_limits import job_slot, reject_if_queue_full
-import psycopg2
-import os
 
 router = APIRouter()
 logger = logging.getLogger("clauseiq.engine.process")
@@ -42,7 +41,7 @@ async def process_document_task(request: ProcessRequest):
         pinecone_ids = store_chunks(request.document_id, chunks, embeddings)
 
         # 6. Save chunks to Neon DB (clear stale rows from prior runs)
-        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         cur.execute(
             'DELETE FROM "Chunk" WHERE "documentId" = %s',
