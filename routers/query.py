@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 import json
 from models.schemas import QueryRequest, QueryResponse, QuerySource
 from db.ownership import assert_document_owner
+from db.billing import assert_usage_allowed
 from db.document_review import get_document_query_flags
 from services.content_guard import (
   assess_question_scope,
@@ -77,6 +78,7 @@ def _sources_payload(chunks: list[dict]) -> list[dict]:
 @router.post("/stream")
 async def query_document_stream(request: QueryRequest):
   assert_document_owner(request.document_id, request.user_id)
+  assert_usage_allowed(request.user_id, "chatMessages")
 
   allowed, block_reason = _document_query_allowed(request.document_id)
   if not allowed:
@@ -139,6 +141,7 @@ async def query_document_stream(request: QueryRequest):
 @router.post("/", response_model=QueryResponse)
 async def query_document(request: QueryRequest):
   assert_document_owner(request.document_id, request.user_id)
+  assert_usage_allowed(request.user_id, "chatMessages")
 
   allowed, block_reason = _document_query_allowed(request.document_id)
   if not allowed:

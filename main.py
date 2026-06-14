@@ -77,14 +77,15 @@ app.include_router(validate.router, prefix="/validate", tags=["validate"], depen
 
 @app.get("/health")
 def health():
+  from db.neon import DATABASE_URL
+
   checks = {"api": "ok"}
 
-  database_url = os.getenv("DATABASE_URL")
-  if database_url:
+  if DATABASE_URL:
     try:
       import psycopg2
 
-      conn = psycopg2.connect(database_url)
+      conn = psycopg2.connect(DATABASE_URL)
       cur = conn.cursor()
       cur.execute("SELECT 1")
       cur.close()

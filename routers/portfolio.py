@@ -5,6 +5,7 @@ from models.schemas import (
   PortfolioSource,
 )
 from db.ownership import assert_documents_owned
+from db.billing import assert_usage_allowed
 from services.embedder import embed_query
 from services.pinecone_service import search_chunks_portfolio
 from services.groq_service import generate_portfolio_answer
@@ -16,6 +17,7 @@ MAX_PORTFOLIO_DOCS = 50
 
 @router.post("/", response_model=PortfolioQueryResponse)
 async def query_portfolio(request: PortfolioQueryRequest):
+  assert_usage_allowed(request.user_id, "portfolioSearches")
   document_ids = list(dict.fromkeys(request.document_ids))
   if len(document_ids) > MAX_PORTFOLIO_DOCS:
     from fastapi import HTTPException
@@ -66,4 +68,4 @@ async def query_portfolio(request: PortfolioQueryRequest):
     confidence=result["confidence"],
     documents_searched=len(document_ids),
   )
-
+

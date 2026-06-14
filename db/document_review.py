@@ -1,13 +1,14 @@
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 
 import psycopg2
 
+from db.neon import DATABASE_URL
+
 
 def _conn():
-  return psycopg2.connect(os.getenv("DATABASE_URL"))
+  return psycopg2.connect(DATABASE_URL)
 
 
 def update_document_review(

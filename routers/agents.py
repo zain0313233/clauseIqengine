@@ -4,6 +4,7 @@ from services.agents import run_agent_team
 from services.parser import parse_document
 from db.agents import save_agent_report, set_agents_pending
 from db.ownership import assert_document_owner
+from db.billing import assert_usage_allowed
 from job_limits import job_slot, reject_if_queue_full
 
 router = APIRouter()
@@ -30,6 +31,7 @@ async def run_agents_task(document_id: str, file_url: str, file_type: str):
 @router.post("/")
 async def trigger_agents(request: AgentsRequest, background_tasks: BackgroundTasks):
   assert_document_owner(request.document_id, request.user_id)
+  assert_usage_allowed(request.user_id, "agentRuns")
   reject_if_queue_full()
   background_tasks.add_task(
     run_agents_task,
